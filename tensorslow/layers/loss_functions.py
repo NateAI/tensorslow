@@ -6,11 +6,17 @@ import numpy as np
 class Loss:
     """ Base class for all loss functions"""
 
+    def __init__(self):
+
+        # store these for gradient calculation
+        self.y_true = None
+        self.y_pred = None
+
     def forward_pass(self, y_true, y_pred):
         raise NotImplementedError(
             'You must implement the forward_pass method of any layer inheriting from ParametricLayer')
 
-    def backward_pass(self, loss):
+    def backward_pass(self):
         raise NotImplementedError(
             'You must implement the forward_pass method of any layer inheriting from ParametricLayer')
 
@@ -27,12 +33,34 @@ class Loss:
 
 class CategoricalCrossentropy(Loss):
 
+
     def forward_pass(self, y_true, y_pred):
-        """(∑_samples(∑_classes(target_class_i * log(prob_i))) / num_samples """
+        """∑_classes(target_class_i * log(prob_i))) / num_samples
+
+        Returns
+        -------
+        losses: np.ndarray
+            [batch_size, 1]
+        """
 
         self._verify_forward_pass_input(y_true, y_pred)
+        self.y_true = y_true
+        self.y_pred = y_pred
 
-        return y_true * np.log(y_pred + np.finfo(float).eps)
+        losses = -1 * np.sum((y_true * np.log(y_pred + np.finfo(float).eps)), axis=1)
 
+        losses = np.expand_dims(losses, axis=1)
 
+        return losses
 
+    def backward_pass(self):
+        """
+        dLi/d(pi,j) = - yi,j / pi,j where i is the example index (row) and j is the class index (column)
+
+        Returns
+        -------
+        gradients: np.ndarray
+            [batch_size, number_neurons_in_prev_layer]
+        """
+
+        return - self.y_true / self.y_pred

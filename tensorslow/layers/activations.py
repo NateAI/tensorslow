@@ -24,12 +24,49 @@ class Softmax(Layer):
 
         super(Softmax, self).__init__()
 
+        self.prev_layer_output = None
+        self.activations = None
+
     def forward_pass(self, prev_layer_output):
         """ σ(z_i) =  e^(z_i) / sum({e^(z_j) for all j}) """
 
         self._verify_forward_and_backward_pass_input(prev_layer_output)
 
-        return np.exp(prev_layer_output) / np.sum(np.exp(prev_layer_output), axis=1)[:, None]
+        self.prev_layer_output = prev_layer_output
+        self.activations = np.exp(prev_layer_output) / np.sum(np.exp(prev_layer_output), axis=1)[:, None]
+
+        return self.activations
+
+    def backward_pass(self, next_layer_gradients, *args, **kwargs):
+        """
+        dσ(o_i)/d(o_j) = p_i (δ_i,j - p_j) where δ_i,j = 1 if i=j, 0 otherwise (i.e. Kronecker delta)
+        Parameters
+        ----------
+        next_layer_gradients: [batch_size, num_output_neurons]
+
+        Returns
+        -------
+        gradients: np.ndarray
+            [batch_size, num_neurons]
+
+        """
+
+        num_neurons = next_layer_gradients.shape[1]
+        batch_size = next_layer_gradients.shape[0]
+
+        kronecker_array = np.repeat(np.eye(num_neurons)[None, :, :], batch_size, axis=0)
+        activations_matrices = np.repeat(self.activations[:, None], num_neurons, axis=1)
+        activations_matrices_transpose = np.swapaxes(activations_matrices, 1, 2)
+
+
+        gradients_matrix = activations_matrices_transpose * (kronecker_array - activations_matrices)
+
+        gradients = np.array([np.matmul(next_layer_gradients[:, None, :][i], gradients_matrix[i]) for i in range(batch_size)])
+        gradients = np.squeeze(gradients, axis=1)  # get rid of extra dim
+
+        return gradients
+
+
 
 
 class Relu(Layer):

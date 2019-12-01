@@ -70,7 +70,7 @@ keras_model.summary()
 
 # Train Model
 
-epochs = 20
+epochs = 25
 batch_size = 32
 learning_rate = 0.01
 
@@ -105,11 +105,13 @@ plt.show()
 #######################################################################################################################
 
 
-tensorslow_model = Model(loss=CategoricalCrossentropy())
+tensorslow_model = Model()
 tensorslow_model.add_layer(FullyConnected(neurons=100, input_dim=784))  # for now you have to specify input dim of every parametric layer
 tensorslow_model.add_layer(layer=Sigmoid())
 tensorslow_model.add_layer(layer=FullyConnected(neurons=10, input_dim=100))
 tensorslow_model.add_layer(layer=Softmax())
+
+tensorslow_model.compile(loss=CategoricalCrossentropy(), optimizer=None, metrics=['accuracy'])
 
 # TODO add model summary method
 
@@ -124,22 +126,23 @@ tensorslow_weights = tensorslow_model.get_weights()  # get updated mlp weights
 # Check that weights have been set properly
 for idx, (k_weight, ts_weight) in enumerate(zip(keras_weights, tensorslow_weights)):
     if (k_weight == ts_weight).all():
-        print('Layer {} weights are the same'.format(idx))
+        print('\n Layer {} weights are the same'.format(idx))
     else:
-        print('Warning! Layer {} weights are not the same for the keras and tensorslow models'.format(idx))
+        print('\n Warning! Layer {} weights are not the same for the keras and tensorslow models'.format(idx))
 
 
 # Test that Tensorslow and Keras predictions match up
 
 batch = x_test[:32]
+y_true = y_test[:32]
 keras_pred = keras_model.predict_on_batch(batch)
 tensorslow_pred = tensorslow_model.predict(batch)
 
 tolerance = 1e-4
 if np.allclose(keras_pred, tensorslow_pred, atol=tolerance):
-    print('Keras and Tensorslow predictions match within tolerance of: {}'.format(tolerance))
+    print('\n Keras and Tensorslow predictions match within tolerance of: {}'.format(tolerance))
 else:
-    print('Keras and Tensorslow predictions do not match within tolerance of {}'.format(tolerance))
+    print('\n Keras and Tensorslow predictions do not match within tolerance of {}'.format(tolerance))
 
 
 # Visualise tensorslow predictions
@@ -159,6 +162,17 @@ for row, column in itertools.product(range(rows), range(columns)):  # loops thro
     img_idx += 1  # move to next image in batch
 
 plt.show()  # makes plot visible
+
+
+# Test that loss calculations match
+print('\n Comparing keras and tensorslow evaluations: ')
+tensorslow_performance_dict = tensorslow_model.evaluate(batch, y_true)
+keras_loss, keras_accuracy = keras_model.evaluate(batch, y_true)
+
+print('\n Keras loss: {:.3f}  -  Tensorslow loss: {:.3f}'.format(keras_loss, tensorslow_performance_dict['loss']))
+
+print('\n Keras acc: {:.1%}  -  Tensorslow acc: {:.1%}'.format(keras_accuracy, tensorslow_performance_dict['accuracy']))
+
 
 
 
