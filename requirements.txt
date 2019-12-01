@@ -1,0 +1,6 @@
+keras
+matplotlib
+numpy
+pandas
+tensorflow
+tqdm
