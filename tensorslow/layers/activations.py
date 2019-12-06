@@ -39,7 +39,8 @@ class Softmax(Layer):
 
     def backward_pass(self, next_layer_gradients, *args, **kwargs):
         """
-        dσ(o_i)/d(o_j) = p_i (δ_i,j - p_j) where δ_i,j = 1 if i=j, 0 otherwise (i.e. Kronecker delta)
+        Compute partial derivatives of loss function wrt input to this layer (logits)
+
         Parameters
         ----------
         next_layer_gradients: [batch_size, num_output_neurons]
@@ -47,26 +48,42 @@ class Softmax(Layer):
         Returns
         -------
         gradients: np.ndarray
-            [batch_size, num_neurons]
+            [batch_size, 1, num_neurons]
 
         """
 
-        num_neurons = next_layer_gradients.shape[1]
-        batch_size = next_layer_gradients.shape[0]
+        # Get partial derivatives of softmax activations wrt logits (Jacobian matrix)
+        jacobian = self.softmax_gradients()
 
-        kronecker_array = np.repeat(np.eye(num_neurons)[None, :, :], batch_size, axis=0)
-        activations_matrices = np.repeat(self.activations[:, None], num_neurons, axis=1)
-        activations_matrices_transpose = np.swapaxes(activations_matrices, 1, 2)
-
-
-        gradients_matrix = activations_matrices_transpose * (kronecker_array - activations_matrices)
-
-        gradients = np.array([np.matmul(next_layer_gradients[:, None, :][i], gradients_matrix[i]) for i in range(batch_size)])
-        gradients = np.squeeze(gradients, axis=1)  # get rid of extra dim
+        gradients = np.matmul(next_layer_gradients, jacobian)  # chain rule to compute ∂L/∂z_i
 
         return gradients
 
+    def softmax_gradients(self):
 
+        """
+        Compute partial derivatives of softmax activations (probabilities) wrt each logit
+
+        ∂(p_i)/∂(z_j) = p_i(δ_i,j - p_j) where δ_i,j = 1 if i=j, 0 otherwise (i.e. Kronecker delta)
+
+        where p_i = σ(z_i) is the softmax activation (probability) for logit z_i
+
+        Returns
+        -------
+        jacobian: np.ndarray
+            [batch_size, num_neurons, num_neurons] jacobian matrix
+        """
+
+        num_neurons = self.activations.shape[1]
+        batch_size = self.activations.shape[0]
+
+        p = np.repeat(self.activations[:, None], num_neurons, axis=1)
+        p_transpose = np.swapaxes(p, 1, 2)
+        kronecker = np.repeat(np.eye(num_neurons)[None, :], batch_size, axis=0)
+
+        jacobian = p_transpose * (kronecker - p)
+
+        return jacobian
 
 
 class Relu(Layer):

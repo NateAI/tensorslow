@@ -33,7 +33,6 @@ class Loss:
 
 class CategoricalCrossentropy(Loss):
 
-
     def forward_pass(self, y_true, y_pred):
         """∑_classes(target_class_i * log(prob_i))) / num_samples
 
@@ -62,5 +61,7 @@ class CategoricalCrossentropy(Loss):
         gradients: np.ndarray
             [batch_size, number_neurons_in_prev_layer]
         """
+        gradients = - self.y_true / self.y_pred
+        gradients = np.expand_dims(gradients, axis=1)  #  [batch_size, 1, num_neurons]
 
-        return - self.y_true / self.y_pred
+        return gradients
