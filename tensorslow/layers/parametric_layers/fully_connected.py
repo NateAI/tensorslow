@@ -1,7 +1,7 @@
 import numpy as np
 
 from tensorslow.layers.layer import ParametricLayer
-
+from tensorslow.operations import batch_matmul
 
 class FullyConnected(ParametricLayer):
 
@@ -39,5 +39,62 @@ class FullyConnected(ParametricLayer):
             partial derivatives of loss wrt inputs of this layer
         """
 
-        return True
+        jacobian = np.transpose(self.weights)  # [num_output_neurons, num_input_neurons]
 
+        gradients = np.matmul(np.squeeze(next_layer_gradients), jacobian)
+        gradients = gradients[:, None, :]
+
+        return gradients
+
+    def get_weight_gradients(self, next_layer_gradients, *args, **kwargs):
+        """
+        Compute partial derivatives of the loss wrt the weights (not inc. bias)
+        Parameters
+        ----------
+        next_layer_gradients: np.ndarray
+            partial derivatives of loss wrt outputs of this layer [batch_size, 1, num_output_neurons]
+        args
+        kwargs
+
+        Returns
+        -------
+        gradients: np.ndarray
+            [batch_size, num_input_neurons, num_output_neurons]
+        """
+
+        # Create jacobian assuming that weights matrix is flattened into a [1 * neurons * input_dim] with all the weights
+        # for the first input first
+        batch_size = next_layer_gradients.shape[0]
+        jacobian = np.zeros(batch_size, self.neurons, self.neurons * self.input_dim)
+        for batch_idx in range(batch_size):
+            for idx in range(self.neurons):
+                jacobian[batch_idx][idx, self.input_dim * idx: self.input_dim * (idx + 1)] = self.prev_layer_output[batch_idx]
+
+        # TODO need to reshape these back to [batch_size, input_dim, neurons]
+        gradients = batch_matmul(next_layer_gradients, jacobian)  # [batch_size, 1, input_dim * neurons]
+
+
+
+        return gradients
+
+    def get_bias_gradients(self, next_layer_gradients, *args, **kwargs):
+        """
+        Compute partial derivatives of the loss wrt the biases
+        Parameters
+        ----------
+        next_layer_gradients: np.ndarray
+            partial derivatives of loss wrt outputs of this layer [batch_size, 1, num_output_neurons]
+        args
+        kwargs
+
+        Returns
+        -------
+        gradients: np.ndarray
+            [batch_size, num_input_neurons, num_output_neurons]
+        """
+        batch_size = next_layer_gradients.shape[0]
+        jacobian = np.repeat(np.eye(self.neurons)[None, :], batch_size, axis=0)
+
+        gradients = batch_matmul(next_layer_gradients, jacobian)
+
+        return gradients
