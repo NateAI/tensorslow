@@ -1,7 +1,7 @@
 jupyter
-keras
+keras==2.2.4
 matplotlib
 numpy
 pandas
-tensorflow
+tensorflow==1.14.0
 tqdm

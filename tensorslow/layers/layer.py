@@ -114,7 +114,7 @@ class ParametricLayer(Layer):
     def _initialise_weights_and_bias(self):
         """ randomly initialise weights"""
         self._weights = np.random.random(size=(self.input_dim, self.neurons))
-        self._bias = np.zeros(shape=self.neurons)
+        self._bias = np.zeros(shape=(1, self.neurons))
 
     @abstractmethod
     def get_weight_gradients(self, next_layer_gradients, *args, **kwargs):

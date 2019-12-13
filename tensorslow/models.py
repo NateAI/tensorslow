@@ -3,8 +3,10 @@ This file will contain the Model class that encapsulates the functionality of  a
 """
 import inspect
 import numpy as np
+from tqdm import tqdm
 
 from tensorslow.layers import ParametricLayer, Loss
+from tensorslow.optimizers import Optimizer
 import tensorslow.metrics as tensorslow_metrics
 
 
@@ -85,7 +87,7 @@ class Model:
 
     def _backward_pass(self):
         """
-        Performs backward pass through full model
+        Performs single iteration of backward pass through full model
         Parameters
         ----------
 
@@ -115,9 +117,102 @@ class Model:
             next_layer_grads = current_layer_grads
 
         if not all([w1.shape == w2.shape for w1, w2 in zip(weight_gradients, self.weights)]):
-            raise Exception('Cannot update weights because weight gradients do not have the same shape as the model weights')
+            raise Exception('Error: weight gradients do not have the same shape as the model weights')
 
         return weight_gradients
+
+    def train(self, x_train, y_train, epochs, batch_size, validation_data=None, shuffle=True):
+        """
+        Train model
+        Parameters
+        ----------
+        x_train: np.ndarray
+            [num_examples, input_dim]
+        y_train: np.ndarray
+            [num_examples, target_dim]
+        epochs: int
+        batch_size: int
+        validation_data: tuple, optional
+            (x_val, y_val)
+        shuffle: bool, optional
+
+        Returns
+        -------
+        logs: dict
+            {'loss': {'train': [1.32, 1.22, 1.02..]
+                      'val': []},
+             'accuracy': {'train': []
+                          'val': []}
+            dict containing list of all metric scores over time
+        """
+
+        #  TODO move these check somewhere else and improve them
+        assert np.ndim(x_train) == 2
+        assert np.ndim(y_train) == 2
+        assert x_train.shape[0] == y_train.shape[0]  # check number of examples is same
+        assert y_train.shape[1] == self.weights[-1].shape[1]  # check target shape is same as model output
+        assert x_train.shape[1] == self.weights[0].shape[0]  # check input dim is same as that of first layer
+
+        if validation_data is not None:
+            assert isinstance(validation_data, tuple)
+            assert len(validation_data) == 2
+            x_val = validation_data[0]
+            y_val = validation_data[1]
+            assert x_val.shape[0] == y_val.shape[0]
+            assert x_train.shape[1] == x_val.shape[1]
+            assert y_train.shape[1] == y_val.shape[1]
+
+        num_examples = x_train.shape[0]
+        print('\n Training on {} Examples \n'.format(num_examples))
+
+        logs = dict.fromkeys(['loss'] + self.metrics)
+        for key in logs.keys():
+            logs[key] = {'train': [], 'val': []}
+
+        for epoch in range(epochs):
+
+            if shuffle:
+                perm = np.random.permutation(num_examples)
+                x_train = x_train[perm]
+                y_train = y_train[perm]
+
+            num_batches = np.math.ceil(num_examples / batch_size)
+            remainder = num_examples % batch_size  # final batch can be of smaller size
+
+            # TODO create batch generator for this
+            for batch_idx in tqdm(range(num_batches)):
+
+                if batch_idx == (num_batches - 1) and remainder > 0:
+                    x_batch = x_train[batch_size * batch_idx:]  # if last batch and batch_size does not divide num_examples
+                    y_batch = y_train[batch_size * batch_idx:]  # then use all remaining examples in final batch
+                else:
+                    x_batch = x_train[batch_size * batch_idx: batch_size * (batch_idx + 1)]  # default case
+                    y_batch = y_train[batch_size * batch_idx: batch_size * (batch_idx + 1)]
+
+                # Forward pass
+                performance_dict = self.evaluate(batch=x_batch, y_true=y_batch)
+                for key in performance_dict.keys():
+                    logs[key]['train'].append(performance_dict[key])
+
+                # Compute weight gradients
+                weight_gradients = self._backward_pass()
+
+                # Compute updated weights
+                updated_weights = self.optimizer.get_updated_weights(current_weights=self.weights, weight_gradients=weight_gradients)
+
+                # Set updated weights
+                self.set_weights(updated_weights)
+
+            if validation_data is not None:
+                # TODO this should be done in batches as well - for now just use small val sets
+                x_val = validation_data[0]
+                y_val = validation_data[1]
+                performance_dict = self.evaluate(x_val, y_val)
+                print('\n Epoch: {:04d}   val_los: {:.3f}   val_acc: {:.3f}'.format(epoch+1, performance_dict['loss'], performance_dict['accuracy']))
+                for key in performance_dict.keys():
+                    logs[key]['val'].append(performance_dict[key])
+
+        return logs
 
     def add_layer(self, layer):
         """ method to add a layer to the model - mimics keras model.add()"""
@@ -147,6 +242,11 @@ class Model:
             self.loss = loss
         else:
             raise ValueError('loss must be a sub-class of tensorslow.layers.loss_functions.Loss')
+
+        if isinstance(optimizer, Optimizer):
+            self.optimizer = optimizer
+        else:
+            raise ValueError('optimizer must be a sub-class of tensorslow.optimizers.Optimizer')
 
         # dict mapping metric name to function
         available_metrics_dict = {f[0]: f[1] for f in inspect.getmembers(tensorslow_metrics, inspect.isfunction)}
@@ -178,12 +278,10 @@ class Model:
             self.weights = weights
             weight_idx = 0
             for layer in self.layers:
-                if hasattr(layer, 'weights') and np.ndim(weights[weight_idx]) == 2:
+                if isinstance(layer, ParametricLayer):
                     layer.weights = weights[weight_idx]
-                    weight_idx += 1
-                if hasattr(layer, 'bias') and np.ndim(weights[weight_idx]) == 1:
-                    layer.bias = weights[weight_idx]
-                    weight_idx += 1
+                    layer.bias = weights[weight_idx + 1]
+                    weight_idx += 2
 
             if weight_idx != len(self.weights):
                 raise ValueError('Unexpectd error setting weights')
