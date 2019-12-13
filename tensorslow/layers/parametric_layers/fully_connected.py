@@ -28,7 +28,7 @@ class FullyConnected(ParametricLayer):
         Parameters
         ----------
         next_layer_gradients: np.ndarray
-            partial derivatives of loss wrt outputs of this layer [batch_size, 1, num_output_neurons]
+            partial derivatives of loss wrt outputs of this layer [batch_size, num_output_neurons]
 
         args
         kwargs
@@ -41,8 +41,7 @@ class FullyConnected(ParametricLayer):
 
         jacobian = np.transpose(self.weights)  # [num_output_neurons, num_input_neurons]
 
-        gradients = np.matmul(np.squeeze(next_layer_gradients), jacobian)
-        gradients = gradients[:, None, :]
+        gradients = np.matmul(next_layer_gradients, jacobian)
 
         return gradients
 
@@ -62,18 +61,20 @@ class FullyConnected(ParametricLayer):
             [batch_size, num_input_neurons, num_output_neurons]
         """
 
+        next_layer_gradients = np.expand_dims(next_layer_gradients, axis=1)  # [batch_size, 1, num_neurons]
+
         # Create jacobian assuming that weights matrix is flattened into a [1 * neurons * input_dim] with all the weights
         # for the first input first
         batch_size = next_layer_gradients.shape[0]
-        jacobian = np.zeros(batch_size, self.neurons, self.neurons * self.input_dim)
+        jacobian = np.zeros(shape=(batch_size, self.neurons, self.neurons * self.input_dim))
         for batch_idx in range(batch_size):
             for idx in range(self.neurons):
                 jacobian[batch_idx][idx, self.input_dim * idx: self.input_dim * (idx + 1)] = self.prev_layer_output[batch_idx]
 
-        # TODO need to reshape these back to [batch_size, input_dim, neurons]
-        gradients = batch_matmul(next_layer_gradients, jacobian)  # [batch_size, 1, input_dim * neurons]
+        gradients = np.matmul(next_layer_gradients, jacobian)  # [batch_size, 1, input_dim * neurons]
 
-
+        # Unflatten weight grads to [input_dim, neurons] from [1, input_dim * neurons]
+        gradients = np.swapaxes(np.reshape(gradients, (batch_size, self.neurons, self.input_dim)), 1, 2)  # [batch_size, input_dim, neurons]
 
         return gradients
 
@@ -90,11 +91,16 @@ class FullyConnected(ParametricLayer):
         Returns
         -------
         gradients: np.ndarray
-            [batch_size, num_input_neurons, num_output_neurons]
+            [batch_size, neurons]
         """
+
+        next_layer_gradients = np.expand_dims(next_layer_gradients, axis=1)  # [batch_size, 1, num_neurons]
+
         batch_size = next_layer_gradients.shape[0]
         jacobian = np.repeat(np.eye(self.neurons)[None, :], batch_size, axis=0)
 
-        gradients = batch_matmul(next_layer_gradients, jacobian)
+        gradients = np.matmul(next_layer_gradients, jacobian)  # [batch_size, 1, neurons]
+
+        gradients = np.squeeze(gradients)  # [batch_size, neurons]
 
         return gradients

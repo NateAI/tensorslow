@@ -62,6 +62,5 @@ class CategoricalCrossentropy(Loss):
             [batch_size, number_neurons_in_prev_layer]
         """
         gradients = - self.y_true / self.y_pred
-        gradients = np.expand_dims(gradients, axis=1)  #  [batch_size, 1, num_neurons]
 
         return gradients

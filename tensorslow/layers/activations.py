@@ -10,12 +10,48 @@ class Sigmoid(Layer):
 
         super(Sigmoid, self).__init__()
 
+        self.prev_layer_output = None
+        self.activations = None
+
     def forward_pass(self, prev_layer_output):
         """ σ(z) = 1 / (1 + e^(-z))"""
 
         self._verify_forward_and_backward_pass_input(prev_layer_output)
 
-        return 1 / (1 + np.exp(-1 * prev_layer_output))
+        self.prev_layer_output = prev_layer_output
+        self.activations = 1 / (1 + np.exp(-1 * prev_layer_output))
+
+        return self.activations
+
+    def backward_pass(self, next_layer_gradients, *args, **kwargs):
+        """
+        Compute partial derivatives of loss function wrt input to this layer (logits)
+
+        Parameters
+        ----------
+        next_layer_gradients: [batch_size, num_neurons]
+
+        Returns
+        -------
+        gradients: np.ndarray
+            [batch_size, num_neurons]
+
+        """
+
+        jacobian = self.sigmoid_gradients()  # [batch_size, num_neurons]
+
+        gradients = next_layer_gradients * jacobian  # [batch_size, num_neurons]
+
+        return gradients
+
+    def sigmoid_gradients(self):
+        """
+        ompute partial derivatives of sigmoid activations (probabilities) wrt each logit
+        Returns
+        -------
+        dσ(z)/d(z) = σ(z)(1 - σ(z))
+        """
+        return self.activations * (1 - self.activations)
 
 
 class Softmax(Layer):
@@ -52,10 +88,14 @@ class Softmax(Layer):
 
         """
 
+        next_layer_gradients = np.expand_dims(next_layer_gradients, axis=1)  #  [batch_size, 1, num_neurons]
+
         # Get partial derivatives of softmax activations wrt logits (Jacobian matrix)
         jacobian = self.softmax_gradients()
 
         gradients = np.matmul(next_layer_gradients, jacobian)  # chain rule to compute ∂L/∂z_i
+
+        gradients = np.squeeze(gradients)
 
         return gradients
 
