@@ -4,13 +4,17 @@ This file will contain the Model class that encapsulates the functionality of  a
 import inspect
 import numpy as np
 
-import tensorslow
+from tensorslow.layers import ParametricLayer, Loss
 import tensorslow.metrics as tensorslow_metrics
 
 
 class Model:
 
     def __init__(self):
+
+        self.batch = None  # store each batch for the backward pass
+        self.y_pred = None
+
         self.layers = []  # empty list to store layer objects
         self.weights = []  # to store weights and bias for each layer
         self.loss = None
@@ -29,13 +33,17 @@ class Model:
         --------
         activations: list[np.ndarray]
             list containing output from each layer
+
         """
+        self.batch = batch
         activations = []
         prev_layer_output = batch
-        for idx, layer in enumerate(self.layers):
+        for layer in self.layers:
             current_layer_output = layer.forward_pass(prev_layer_output)
             activations.append(current_layer_output)
             prev_layer_output = current_layer_output
+
+        self.y_pred = activations[-1]
 
         return activations
 
@@ -76,17 +84,48 @@ class Model:
         return performance_dict
 
     def _backward_pass(self):
-        """ method to perform backward pass of model - i.e. backgropogation"""
-        print('coming soon...')
+        """
+        Performs backward pass through full model
+        Parameters
+        ----------
+
+        Returns
+        -------
+        weight_gradients: list[np.ndarray]
+            list containing the update gradients for all weights and biases in the model
+            the shape of all arrays in the list should match the shapes in self.weights
+            the gradients are the averaged over the batch dimension for mini-batch learning
+        """
+
+        weight_gradients = []  # list to store gradients for all weights in model
+
+        loss_grads = self.loss.backward_pass()
+        next_layer_grads = loss_grads
+
+        for layer in reversed(self.layers):
+            current_layer_grads = layer.backward_pass(next_layer_grads)
+
+            # If the layer is parametric (i.e. has weights and bias) the also compute the partial derivatives of the
+            # weights and bias and store in output list. bias first to keep ordering of model weights.
+            if isinstance(layer, ParametricLayer):
+                weight_gradients.insert(0, layer.get_bias_gradients(next_layer_grads))
+                weight_gradients.insert(0, layer.get_weight_gradients(next_layer_grads))
+
+            # current_layer_grads become the next_layer_grads for the next iteration
+            next_layer_grads = current_layer_grads
+
+        if not all([w1.shape == w2.shape for w1, w2 in zip(weight_gradients, self.weights)]):
+            raise Exception('Cannot update weights because weight gradients do not have the same shape as the model weights')
+
+        return weight_gradients
 
     def add_layer(self, layer):
         """ method to add a layer to the model - mimics keras model.add()"""
         # TODO add more checking on the layer input and output shape
         self.layers.append(layer)
 
-        if hasattr(layer, 'weights'):
+        if isinstance(layer, ParametricLayer):
             self.weights.append(layer.weights)
-        if hasattr(layer, 'bias'):
             self.weights.append(layer.bias)
 
     def compile(self, loss, optimizer, metrics=None):
@@ -104,7 +143,7 @@ class Model:
 
         """
 
-        if isinstance(loss, tensorslow.layers.loss_functions.Loss):
+        if isinstance(loss, Loss):
             self.loss = loss
         else:
             raise ValueError('loss must be a sub-class of tensorslow.layers.loss_functions.Loss')
@@ -114,7 +153,7 @@ class Model:
         available_metrics = list(available_metrics_dict)
 
         if not isinstance(metrics, list):
-            raise ValueError('metrics must be a list of metric names e.g. accuracy')
+            raise ValueError('metrics must be a list of metric names e.g. [\'accuracy\']')
         elif not set(metrics).issubset(available_metrics):
             invalid_metrics = list(set(metrics) - set(available_metrics))
             raise ValueError('following metrics are not implemented in the metrics.py file: {}'.format(invalid_metrics))

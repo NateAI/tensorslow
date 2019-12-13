@@ -1,7 +1,7 @@
 """
 Base class for all layers
 """
-
+from abc import abstractmethod
 
 import numpy as np
 
@@ -115,5 +115,15 @@ class ParametricLayer(Layer):
         """ randomly initialise weights"""
         self._weights = np.random.random(size=(self.input_dim, self.neurons))
         self._bias = np.zeros(shape=self.neurons)
+
+    @abstractmethod
+    def get_weight_gradients(self, next_layer_gradients, *args, **kwargs):
+        raise NotImplementedError(
+            'You must implement the get_weight_gradients method of any layer inheriting from ParametricLayer')
+
+    @abstractmethod
+    def get_bias_gradients(self, next_layer_gradients, *args, **kwargs):
+        raise NotImplementedError(
+            'You must implement the get_bias_gradients method of any layer inheriting from ParametricLayer')
 
 

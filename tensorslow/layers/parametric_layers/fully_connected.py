@@ -1,7 +1,7 @@
 import numpy as np
 
 from tensorslow.layers.layer import ParametricLayer
-from tensorslow.operations import batch_matmul
+
 
 class FullyConnected(ParametricLayer):
 
@@ -57,8 +57,9 @@ class FullyConnected(ParametricLayer):
 
         Returns
         -------
-        gradients: np.ndarray
-            [batch_size, num_input_neurons, num_output_neurons]
+        mean_gradients: np.ndarray
+            the mean partial derivatives of loss wrt weights across all examples in the batch
+             [num_input_neurons, num_output_neurons]
         """
 
         next_layer_gradients = np.expand_dims(next_layer_gradients, axis=1)  # [batch_size, 1, num_neurons]
@@ -76,7 +77,9 @@ class FullyConnected(ParametricLayer):
         # Unflatten weight grads to [input_dim, neurons] from [1, input_dim * neurons]
         gradients = np.swapaxes(np.reshape(gradients, (batch_size, self.neurons, self.input_dim)), 1, 2)  # [batch_size, input_dim, neurons]
 
-        return gradients
+        mean_gradients = np.mean(gradients, axis=0)
+
+        return mean_gradients
 
     def get_bias_gradients(self, next_layer_gradients, *args, **kwargs):
         """
@@ -90,8 +93,8 @@ class FullyConnected(ParametricLayer):
 
         Returns
         -------
-        gradients: np.ndarray
-            [batch_size, neurons]
+        mean_gradients: np.ndarray
+            [1, neurons]
         """
 
         next_layer_gradients = np.expand_dims(next_layer_gradients, axis=1)  # [batch_size, 1, num_neurons]
@@ -103,4 +106,7 @@ class FullyConnected(ParametricLayer):
 
         gradients = np.squeeze(gradients)  # [batch_size, neurons]
 
-        return gradients
+        mean_gradients = np.mean(gradients, axis=0)  # [neurons]
+        mean_gradients = np.expand_dims(mean_gradients, axis=0)  # [1, neurons]
+
+        return mean_gradients
