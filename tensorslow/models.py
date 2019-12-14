@@ -189,19 +189,13 @@ class Model:
                     x_batch = x_train[batch_size * batch_idx: batch_size * (batch_idx + 1)]  # default case
                     y_batch = y_train[batch_size * batch_idx: batch_size * (batch_idx + 1)]
 
-                # Forward pass
-                performance_dict = self.evaluate(batch=x_batch, y_true=y_batch)
-                for key in performance_dict.keys():
-                    logs[key]['train'].append(performance_dict[key])
+                # Train step
+                self.train_step(x_batch, y_batch)
 
-                # Compute weight gradients
-                weight_gradients = self._backward_pass()
-
-                # Compute updated weights
-                updated_weights = self.optimizer.get_updated_weights(current_weights=self.weights, weight_gradients=weight_gradients)
-
-                # Set updated weights
-                self.set_weights(updated_weights)
+            # End of Epoch
+            performance_dict = self.evaluate(x_train, y_train)
+            for key in performance_dict.keys():
+                logs[key]['train'].append(performance_dict[key])
 
             if validation_data is not None:
                 # TODO this should be done in batches as well - for now just use small val sets
@@ -213,6 +207,38 @@ class Model:
                     logs[key]['val'].append(performance_dict[key])
 
         return logs
+
+    def train_step(self, x_batch, y_batch):
+        """
+        Perform single step of training on a batch of examples
+        Includes forward pass, backward pass and weight updates
+        Parameters
+        ----------
+        x_batch: np.ndarray
+            [batch_size, input_dim]
+        y_batch: np.ndarray
+            [batch_size, target_dim]
+
+        Returns
+        -------
+        performance_dict: dict
+            {'loss': 1.33..,
+             'accuracy': '0.82..'
+        """
+        # Forward pass
+        performance_dict = self.evaluate(batch=x_batch, y_true=y_batch)
+
+        # Compute weight gradients
+        weight_gradients = self._backward_pass()
+
+        # Compute updated weights
+        updated_weights = self.optimizer.get_updated_weights(current_weights=self.weights,
+                                                             weight_gradients=weight_gradients)
+
+        # Set updated weights
+        self.set_weights(updated_weights)
+
+        return performance_dict, weight_gradients
 
     def add_layer(self, layer):
         """ method to add a layer to the model - mimics keras model.add()"""
@@ -252,14 +278,15 @@ class Model:
         available_metrics_dict = {f[0]: f[1] for f in inspect.getmembers(tensorslow_metrics, inspect.isfunction)}
         available_metrics = list(available_metrics_dict)
 
-        if not isinstance(metrics, list):
-            raise ValueError('metrics must be a list of metric names e.g. [\'accuracy\']')
-        elif not set(metrics).issubset(available_metrics):
-            invalid_metrics = list(set(metrics) - set(available_metrics))
-            raise ValueError('following metrics are not implemented in the metrics.py file: {}'.format(invalid_metrics))
-        else:
-            self.metrics = metrics
-            self.metrics_dict = {metric: metric_func for metric, metric_func in available_metrics_dict.items() if metric in metrics}
+        if metrics is not None:
+            if not isinstance(metrics, list):
+                raise ValueError('metrics must be a list of metric names e.g. [\'accuracy\']')
+            elif not set(metrics).issubset(available_metrics):
+                invalid_metrics = list(set(metrics) - set(available_metrics))
+                raise ValueError('following metrics are not implemented in the metrics.py file: {}'.format(invalid_metrics))
+            else:
+                self.metrics = metrics
+                self.metrics_dict = {metric: metric_func for metric, metric_func in available_metrics_dict.items() if metric in metrics}
 
         # TODO same for optimizer
 
