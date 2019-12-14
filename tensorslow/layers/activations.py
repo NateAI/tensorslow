@@ -40,6 +40,7 @@ class Sigmoid(Layer):
 
         jacobian = self.sigmoid_gradients()  # [batch_size, num_neurons]
 
+        assert jacobian.shape == next_layer_gradients.shape
         gradients = next_layer_gradients * jacobian  # [batch_size, num_neurons]
 
         return gradients

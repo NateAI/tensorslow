@@ -97,16 +97,8 @@ class FullyConnected(ParametricLayer):
             [1, neurons]
         """
 
-        next_layer_gradients = np.expand_dims(next_layer_gradients, axis=1)  # [batch_size, 1, num_neurons]
-
-        batch_size = next_layer_gradients.shape[0]
-        jacobian = np.repeat(np.eye(self.neurons)[None, :], batch_size, axis=0)
-
-        gradients = np.matmul(next_layer_gradients, jacobian)  # [batch_size, 1, neurons]
-
-        gradients = np.squeeze(gradients)  # [batch_size, neurons]
-
-        mean_gradients = np.mean(gradients, axis=0)  # [neurons]
-        mean_gradients = np.expand_dims(mean_gradients, axis=0)  # [1, neurons]
+        # Because the partial derivatives of the logits wrt the bias is always one - the partial derivaties wrt the bias
+        # is simply equal to the next_layer_gradients. We then average over the batch dimension.
+        mean_gradients = np.mean(next_layer_gradients, axis=0)[None, :]
 
         return mean_gradients
