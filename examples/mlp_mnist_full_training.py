@@ -83,7 +83,7 @@ k_model.compile(optimizer=k_optimizer, loss='categorical_crossentropy', metrics=
 #######################################################################################################################
 
 num_examples_to_use = 1000
-epochs = 1
+epochs = 5
 batch_size = 32
 
 print('\n Training Keras Model')

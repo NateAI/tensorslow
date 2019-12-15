@@ -1,13 +1,13 @@
 import numpy as np
 
-from tensorslow.layers.layer import ParametricLayer
+from tensorslow.layers.parametric_layers.parametric_layer import ParametricLayer
 
 
 class FullyConnected(ParametricLayer):
 
-    def __init__(self, neurons, input_dim):
+    def __init__(self, neurons, input_dim, initializer_name='GlorotUniform', initializer=None):
 
-        super(FullyConnected, self).__init__(neurons, input_dim)
+        super(FullyConnected, self).__init__(neurons, input_dim, initializer_name, initializer)
 
         self.prev_layer_output = None  # store on forward pass for backward pass
         self.logits = None
