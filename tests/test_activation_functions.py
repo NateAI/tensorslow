@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from tensorslow.layers import Sigmoid, Softmax
+from tensorslow.layers import Sigmoid, Softmax, Relu
 
 
 class TestActivationFunctions(unittest.TestCase):
@@ -14,6 +14,7 @@ class TestActivationFunctions(unittest.TestCase):
 
         self.softmax = Softmax()
         self.sigmoid = Sigmoid()
+        self.relu = Relu()
 
         self.tolerance = 1e-5
 
@@ -83,6 +84,33 @@ class TestActivationFunctions(unittest.TestCase):
 
         np.testing.assert_allclose(gradients, desired, atol=self.tolerance,
                                    err_msg='Failed to calculate partial derivatives of loss wrt softmax input')
+
+    def test_relu_forward_pass(self):
+
+        activations = self.relu.forward_pass(self.logits)
+        desired = np.array([[0, 5, 0],
+                            [0, 5, 0]])
+
+        np.testing.assert_allclose(activations, desired, atol=self.tolerance)
+
+    def test_relu_gradient_calculation(self):
+        """test calculation of partial derivatives of relu output (activations) wrt input (logits)"""
+
+        self.relu.forward_pass(self.logits)
+        jacobian = self.relu.relu_gradients()
+        desired = np.array([[0, 1, 0],
+                            [0, 1, 0]])
+        np.testing.assert_allclose(jacobian, desired, atol=self.tolerance)
+
+    def test_relu_backward_pass(self):
+        """test calculation of partial derivatives of loss wrt relu input (logits)"""
+
+        self.relu.forward_pass(self.logits)
+        gradients = self.relu.backward_pass(self.next_layer_gradients)
+
+        desired = np.array([[0, 1, 0], [0, 1, 0]])
+        np.testing.assert_allclose(gradients, desired, atol=self.tolerance)
+
 
 if __name__ == '__main__':
     unittest.main()

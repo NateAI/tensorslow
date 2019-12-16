@@ -133,12 +133,45 @@ class Relu(Layer):
 
         super(Relu, self).__init__()
 
+        self.prev_layer_output = None
+        self.activations = None
+
     def forward_pass(self, prev_layer_output):
         """ σ(z) = max(0, z)"""
 
         self._verify_forward_and_backward_pass_input(prev_layer_output)
 
-        return np.maximum(prev_layer_output, np.zeros(shape=prev_layer_output.shape))
+        self.prev_layer_output = prev_layer_output
+        self.activations = np.maximum(prev_layer_output, np.zeros(shape=prev_layer_output.shape))
+
+        return self.activations
+
+    def backward_pass(self, next_layer_gradients, *args, **kwargs):
+        """compute partial derivatives of loss wrt inputs to this layer (logits)
+
+        Parameters
+        ----------
+        next_layer_gradients: np.ndarray
+            [batch_size, num_neurons]
+
+        Returns
+        -------
+        gradients: np.ndarray
+            [batch_size, num_neurons]
+        """
+
+        jacobian = self.relu_gradients()
+
+        gradients = next_layer_gradients * jacobian  # [batch_size, num_neurons]
+
+        return gradients
+
+    def relu_gradients(self):
+        """ compute partial derivatives of relu output activations wrt logits"""
+
+        jacobian = (self.activations > 0).astype(int)
+
+        return jacobian
 
 
 class Tanh(Layer):

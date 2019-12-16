@@ -9,7 +9,7 @@ from keras.layers import Dense, Softmax as K_Softmax, Activation
 from keras.models import Sequential
 from keras.optimizers import SGD as K_SGD
 
-from tensorslow.layers import FullyConnected, Sigmoid, Softmax, CategoricalCrossentropy
+from tensorslow.layers import FullyConnected, Sigmoid, Softmax, CategoricalCrossentropy, Relu
 from tensorslow.models import Model
 from tensorslow.optimizers import SGD
 
@@ -49,7 +49,7 @@ lr = 0.01
 
 tensorslow_model = Model()
 tensorslow_model.add_layer(FullyConnected(neurons=fc1_units, input_dim=image_vector_size))  # for now you have to specify input dim of every parametric layer
-tensorslow_model.add_layer(layer=Sigmoid())
+tensorslow_model.add_layer(layer=Relu())
 tensorslow_model.add_layer(layer=FullyConnected(neurons=10, input_dim=fc1_units))
 tensorslow_model.add_layer(layer=Softmax())
 sgd = SGD(lr=lr)
@@ -61,7 +61,7 @@ tensorslow_model.compile(loss=CategoricalCrossentropy(), optimizer=sgd, metrics=
 # Build equivalent model in Keras
 k_model = Sequential()
 k_model.add(Dense(units=fc1_units, input_dim=image_vector_size))
-k_model.add(Activation('sigmoid'))
+k_model.add(Activation('relu'))
 k_model.add(Dense(units=num_classes, input_dim=fc1_units))
 k_model.add(K_Softmax())
 
