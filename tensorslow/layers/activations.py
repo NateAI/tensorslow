@@ -167,7 +167,10 @@ class Relu(Layer):
         return gradients
 
     def relu_gradients(self):
-        """ compute partial derivatives of relu output activations wrt logits"""
+        """ compute partial derivatives of relu output activations wrt logits
+
+        σ'(z) = {1 if σ(z)>0, 0 otherwise}
+        """
 
         jacobian = (self.activations > 0).astype(int)
 
@@ -180,12 +183,49 @@ class Tanh(Layer):
 
         super(Tanh, self).__init__()
 
+        self.prev_layer_output = None
+        self.activations = None
+
     def forward_pass(self, prev_layer_output):
         """ σ(z) = (e^z - e^-z) / (e^z + e^-z)"""
 
         self._verify_forward_and_backward_pass_input(prev_layer_output)
 
+        self.prev_layer_output = prev_layer_output
+
         e_z = np.exp(prev_layer_output)
         e_minus_z = np.exp(-1 * prev_layer_output)
 
-        return (e_z - e_minus_z) / (e_z + e_minus_z)
+        self.activations = (e_z - e_minus_z) / (e_z + e_minus_z)
+
+        return self.activations
+
+    def backward_pass(self, next_layer_gradients, *args, **kwargs):
+        """compute partial derivatives of loss wrt inputs to this layer (logits)
+
+        Parameters
+        ----------
+        next_layer_gradients: np.ndarray
+            [batch_size, num_neurons]
+
+        Returns
+        -------
+        gradients: np.ndarray
+            [batch_size, num_neurons]
+        """
+
+        jacobian = self.tanh_gradients()
+
+        gradients = next_layer_gradients * jacobian
+
+        return gradients
+
+    def tanh_gradients(self):
+        """compute partial derivatives of tanh output (activations) wrt input (logits_
+
+        σ'(z) = 1 = (σ(z))^2
+        """
+
+        jacobian = 1 - self.activations * self.activations
+
+        return jacobian
