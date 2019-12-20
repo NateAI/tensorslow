@@ -21,7 +21,7 @@ class Model:
         self.weights = []  # to store weights and bias for each layer
         self.loss = None
         self.optimizer = None
-        self.metrics = None
+        self.metrics = None  # list of metric names
         self.metrics_dict = None  # mapping from metric name to function
 
     def _forward_pass(self, batch):
@@ -243,8 +243,26 @@ class Model:
     def add_layer(self, layer):
         """ method to add a layer to the model - mimics keras model.add()"""
         # TODO add more checking on the layer input and output shape
-        self.layers.append(layer)
 
+        existing_parametric_layers = [layer for layer in self.layers if isinstance(layer, ParametricLayer)]
+
+        if isinstance(layer, ParametricLayer):
+            # If input_dim of a parametric layer is unspecified infer it from the output of the previous layer
+            if layer.input_dim is None:
+                if not existing_parametric_layers:
+                    raise ValueError('You must specify the input_dim for the first parametric layer in a model')
+                else:
+                    layer.input_dim = existing_parametric_layers[-1].neurons
+            elif existing_parametric_layers:
+                # If input_dim is specified then check that it matches the output shape of the previous layer
+                if layer.input_dim != existing_parametric_layers[-1].neurons:
+                    raise ValueError('input_dim: {} does not match the output shape of the previous parametric layer: {}'
+                                     .format(layer.input_dim, existing_parametric_layers[-1].neurons))
+                # TODO Warning! This will probably need to change to checking the output shape of the previous layer -
+                # TODO  regardless of whether it was parametric as some nonparametric layers i.e. maxpooling will change
+                # TODO   the shape
+
+        self.layers.append(layer)
         if isinstance(layer, ParametricLayer):
             self.weights.append(layer.weights)
             self.weights.append(layer.bias)
@@ -287,8 +305,6 @@ class Model:
             else:
                 self.metrics = metrics
                 self.metrics_dict = {metric: metric_func for metric, metric_func in available_metrics_dict.items() if metric in metrics}
-
-        # TODO same for optimizer
 
     def get_weights(self):
         return self.weights

@@ -49,8 +49,8 @@ lr = 0.01
 
 tensorslow_model = Model()
 tensorslow_model.add_layer(FullyConnected(neurons=fc1_units, input_dim=image_vector_size))  # for now you have to specify input dim of every parametric layer
-tensorslow_model.add_layer(layer=Tanh())
-tensorslow_model.add_layer(layer=FullyConnected(neurons=10, input_dim=fc1_units))
+tensorslow_model.add_layer(layer=Sigmoid())
+tensorslow_model.add_layer(layer=FullyConnected(neurons=10))  # using ability to infer input_dim of subsequent parametric layers
 tensorslow_model.add_layer(layer=Softmax())
 sgd = SGD(lr=lr)
 tensorslow_model.compile(loss=CategoricalCrossentropy(), optimizer=sgd, metrics=['accuracy'])
@@ -61,7 +61,7 @@ tensorslow_model.compile(loss=CategoricalCrossentropy(), optimizer=sgd, metrics=
 # Build equivalent model in Keras
 k_model = Sequential()
 k_model.add(Dense(units=fc1_units, input_dim=image_vector_size))
-k_model.add(Activation('tanh'))
+k_model.add(Activation('sigmoid'))
 k_model.add(Dense(units=num_classes, input_dim=fc1_units))
 k_model.add(K_Softmax())
 
@@ -72,7 +72,7 @@ k_model.compile(optimizer=k_optimizer, loss='categorical_crossentropy', metrics=
 #                                 STEP 3 - Give TS model the same initialized weights as the Keras model
 #######################################################################################################################
 
-# Set Tensorslow model to have same initial weights as keras model
+#Set Tensorslow model to have same initial weights as keras model
 # k_init_weights = k_model.get_weights()
 # k_init_weights[1] = k_init_weights[1][None, :]  # add batch dim to keras biases before setting
 # k_init_weights[3] = k_init_weights[3][None, :]  #

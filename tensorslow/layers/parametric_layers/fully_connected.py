@@ -5,7 +5,7 @@ from tensorslow.layers.parametric_layers.parametric_layer import ParametricLayer
 
 class FullyConnected(ParametricLayer):
 
-    def __init__(self, neurons, input_dim, initializer_name='GlorotUniform', initializer=None):
+    def __init__(self, neurons, input_dim=None, initializer_name='GlorotUniform', initializer=None):
 
         super(FullyConnected, self).__init__(neurons, input_dim, initializer_name, initializer)
 
