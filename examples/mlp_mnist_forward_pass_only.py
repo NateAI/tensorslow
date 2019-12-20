@@ -166,7 +166,7 @@ plt.show()  # makes plot visible
 
 # Test that loss calculations match
 print('\n Comparing keras and tensorslow evaluations: ')
-tensorslow_performance_dict = tensorslow_model.evaluate(batch, y_true)
+tensorslow_performance_dict = tensorslow_model.evaluate_on_batch(batch, y_true)
 keras_loss, keras_accuracy = keras_model.evaluate(batch, y_true)
 
 print('\n Keras loss: {:.3f}  -  Tensorslow loss: {:.3f}'.format(keras_loss, tensorslow_performance_dict['loss']))

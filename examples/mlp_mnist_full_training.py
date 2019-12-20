@@ -56,7 +56,6 @@ sgd = SGD(lr=lr)
 tensorslow_model.compile(loss=CategoricalCrossentropy(), optimizer=sgd, metrics=['accuracy'])
 
 tensorslow_model.summary()
-time.sleep(5)  # give chance to inspect summary
 
 #######################################################################################################################
 #                                 STEP 2 - Implement Equivilent MLP in Keras
@@ -91,12 +90,14 @@ batch_size = 32
 
 print('\n Training Keras Model')
 start = time.time()
-history = k_model.fit(x_train[:num_examples_to_use], y_train[:num_examples_to_use], batch_size=batch_size, epochs=epochs, shuffle=False)
+history = k_model.fit(x_train[:num_examples_to_use], y_train[:num_examples_to_use], batch_size=batch_size,
+                      validation_data=(x_test, y_test), epochs=epochs, shuffle=False)
 k_runtime = time.time() - start
 
 print('\n Training Tensorslow Model')
 start = time.time()
-logs = tensorslow_model.train(x_train[:num_examples_to_use], y_train[:num_examples_to_use], batch_size=batch_size, epochs=epochs, shuffle=False)
+logs = tensorslow_model.train(x_train[:num_examples_to_use], y_train[:num_examples_to_use], batch_size=batch_size,
+                              validation_data=(x_test, y_test), epochs=epochs, shuffle=False)
 t_runtime = time.time() - start
 
 print('\n Keras Runtime: {}  Tensorslow Runtime:  {}'.format(k_runtime, t_runtime))
@@ -104,20 +105,32 @@ print('\n Keras trained {} times faster than tensorslow'.format(t_runtime / k_ru
 #######################################################################################################################
 
 
-fig, (ax1, ax2) = plt.subplots(1, 2)
-ax1.plot(logs['loss']['train'])
-ax1.plot(history.history['loss'])
-ax1.set_xlabel('Epoch')
-ax1.set_ylabel('Train Loss')
-ax1.legend(['Tensorslow', 'Keras'])
+fig, ax_arr = plt.subplots(2, 2)
 
-ax2.plot(logs['accuracy']['train'])
-ax2.plot(history.history['acc'])
-ax2.set_xlabel('Epoch')
-ax2.set_ylabel('Accuracy')
-ax2.legend(['Tensorslow', 'Keras'])
+ax_arr[0, 0].plot(logs['loss']['train'])
+ax_arr[0, 0].plot(history.history['loss'])
+ax_arr[0, 0].set_xlabel('Epoch')
+ax_arr[0, 0].set_ylabel('Train Loss')
+ax_arr[0, 0].legend(['Tensorslow', 'Keras'])
 
-fig.suptitle('MNIST MLP: Keras vs Tensorslow')
+ax_arr[0, 1].plot(logs['loss']['val'])
+ax_arr[0, 1].plot(history.history['val_loss'])
+ax_arr[0, 1].set_xlabel('Epoch')
+ax_arr[0, 1].set_ylabel('Val Loss')
+ax_arr[0, 1].legend(['Tensorslow', 'Keras'])
+
+ax_arr[1, 0].plot(logs['accuracy']['train'])
+ax_arr[1, 0].plot(history.history['acc'])
+ax_arr[1, 0].set_xlabel('Epoch')
+ax_arr[1, 0].set_ylabel('Train Accuracy (%)')
+ax_arr[1, 0].legend(['Tensorslow', 'Keras'])
+
+ax_arr[1, 1].plot(logs['accuracy']['val'])
+ax_arr[1, 1].plot(history.history['val_acc'])
+ax_arr[1, 1].set_xlabel('Epoch')
+ax_arr[1, 1].set_ylabel('Val Accuracy (%)')
+ax_arr[1, 1].legend(['Tensorslow', 'Keras'])
+
 plt.show()
 
 

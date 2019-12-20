@@ -11,6 +11,8 @@ from tqdm import tqdm
 from tensorslow.layers import Layer, ParametricLayer, Loss
 from tensorslow.optimizers import Optimizer
 import tensorslow.metrics as tensorslow_metrics
+from tensorslow.utils.batch_generator import batch_generator
+from tensorslow.utils.running_average import RunningAverage
 
 
 class Model:
@@ -58,7 +60,33 @@ class Model:
         activations = self._forward_pass(batch)
         return activations[-1]
 
-    def evaluate(self, batch, y_true):
+    def evaluate(self, x, y_true, batch_size):
+
+        """Evaluate on entire set
+
+        Parameters
+        ----------
+        x: np.ndarray
+            data to evaluate on
+        y_true: np.ndarray
+            true labels
+        batch_size: int
+        """
+
+        eval_batch_generator = batch_generator(x, y_true, batch_size, shuffle=False)
+
+        # Store running average of each metric
+        eval_performance_running_average = RunningAverage()
+
+        for x_batch, y_batch in eval_batch_generator:
+
+            performance_dict = self.evaluate_on_batch(x_batch, y_batch)
+
+            eval_performance_running_average.update(performance_dict, num_examples=x_batch.shape[0])
+
+        return eval_performance_running_average.average
+
+    def evaluate_on_batch(self, batch, y_true):
         """
         evaluate model on batch of examples
         Parameters
@@ -70,7 +98,8 @@ class Model:
         Returns
         -------
         performance_dict: dict
-            dict mapping metric name to score
+            dict mapping metric names to score e.g. {'loss': 1.23,
+                                                     'accuracy': 0.92}
         """
 
         performance_dict = {}
@@ -149,69 +178,52 @@ class Model:
             dict containing list of all metric scores over time
         """
 
-        #  TODO move these check somewhere else and improve them
-        assert np.ndim(x_train) == 2
-        assert np.ndim(y_train) == 2
-        assert x_train.shape[0] == y_train.shape[0]  # check number of examples is same
-        assert y_train.shape[1] == self.weights[-1].shape[1]  # check target shape is same as model output
-        assert x_train.shape[1] == self.weights[0].shape[0]  # check input dim is same as that of first layer
-
-        if validation_data is not None:
-            assert isinstance(validation_data, tuple)
-            assert len(validation_data) == 2
-            x_val = validation_data[0]
-            y_val = validation_data[1]
-            assert x_val.shape[0] == y_val.shape[0]
-            assert x_train.shape[1] == x_val.shape[1]
-            assert y_train.shape[1] == y_val.shape[1]
-
-        num_examples = x_train.shape[0]
-        print('\n Training on {} Examples \n'.format(num_examples))
-
         logs = dict.fromkeys(['loss'] + self.metrics)
         for key in logs.keys():
             logs[key] = {'train': [], 'val': []}
 
+        print('\n Training on {} Examples\n'.format(x_train.shape[0]))
+
+        if validation_data is not None:
+            assert isinstance(validation_data, tuple)
+            assert len(validation_data) == 2
+            x_val, y_val = validation_data
+            assert x_val.shape[1:] == x_train.shape[1:]
+            assert y_val.shape[1:] == y_train.shape[1:]
+
         for epoch in range(epochs):
 
-            if shuffle:
-                perm = np.random.permutation(num_examples)
-                x_train = x_train[perm]
-                y_train = y_train[perm]
+            train_batch_generator = batch_generator(x_train, y_train, batch_size, shuffle)
 
-            num_batches = np.math.ceil(num_examples / batch_size)
-            remainder = num_examples % batch_size  # final batch can be of smaller size
+            # Store running average of each metric on train set for this epoch
+            train_performance_running_average = RunningAverage()
 
-            # TODO create batch generator for this
-            for batch_idx in tqdm(range(num_batches)):
-
-                if batch_idx == (num_batches - 1) and remainder > 0:
-                    x_batch = x_train[batch_size * batch_idx:]  # if last batch and batch_size does not divide num_examples
-                    y_batch = y_train[batch_size * batch_idx:]  # then use all remaining examples in final batch
-                else:
-                    x_batch = x_train[batch_size * batch_idx: batch_size * (batch_idx + 1)]  # default case
-                    y_batch = y_train[batch_size * batch_idx: batch_size * (batch_idx + 1)]
+            # Train
+            for x_batch, y_batch in train_batch_generator:
 
                 # Train step
-                self.train_step(x_batch, y_batch)
+                performance_dict, _ = self.train_on_batch(x_batch, y_batch)
+                train_performance_running_average.update(performance_dict, num_examples=x_batch.shape[0])
 
-            # End of Epoch
-            performance_dict = self.evaluate(x_train, y_train)
-            for key in performance_dict.keys():
-                logs[key]['train'].append(performance_dict[key])
+            for metric, avg_val in train_performance_running_average.average.items():
+                logs[metric]['train'].append(avg_val)
 
+            # Evaluate
             if validation_data is not None:
-                # TODO this should be done in batches as well - for now just use small val sets
-                x_val = validation_data[0]
-                y_val = validation_data[1]
-                performance_dict = self.evaluate(x_val, y_val)
-                print('\n Epoch: {:04d}   val_los: {:.3f}   val_acc: {:.3f}'.format(epoch+1, performance_dict['loss'], performance_dict['accuracy']))
-                for key in performance_dict.keys():
-                    logs[key]['val'].append(performance_dict[key])
+
+                val_performance_dict = self.evaluate(x_val, y_val, batch_size)
+
+                for metric, avg_val in val_performance_dict.items():
+                    logs[metric]['val'].append(avg_val)
+
+            # Log
+            print('\n Epoch {}/{}:'.format(epoch, epochs))
+            for metric, metric_vals in logs.items():
+                print('train {}: {} '.format(metric, metric_vals['train'][-1]))
 
         return logs
 
-    def train_step(self, x_batch, y_batch):
+    def train_on_batch(self, x_batch, y_batch):
         """
         Perform single step of training on a batch of examples
         Includes forward pass, backward pass and weight updates
@@ -229,7 +241,7 @@ class Model:
              'accuracy': '0.82..'
         """
         # Forward pass
-        performance_dict = self.evaluate(batch=x_batch, y_true=y_batch)
+        performance_dict = self.evaluate_on_batch(batch=x_batch, y_true=y_batch)
 
         # Compute weight gradients
         weight_gradients = self._backward_pass()

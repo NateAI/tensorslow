@@ -79,7 +79,7 @@ class TestTrainStep(unittest.TestCase):
 
         # Train both models on same batch
         self.k_model.train_on_batch(x_batch, y_batch)
-        self.t_model.train_step(x_batch, y_batch)  #
+        self.t_model.train_on_batch(x_batch, y_batch)  #
 
         # Get updated weights for each model
         k_new_weights = self.k_model.get_weights()
