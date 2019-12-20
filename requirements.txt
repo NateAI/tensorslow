@@ -3,5 +3,6 @@ keras==2.2.4
 matplotlib
 numpy
 pandas
+tabulate==0.8.6
 tensorflow==1.14.0
 tqdm

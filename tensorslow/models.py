@@ -2,10 +2,13 @@
 This file will contain the Model class that encapsulates the functionality of  a Deep Learning model.
 """
 import inspect
+from tabulate import tabulate
+
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
-from tensorslow.layers import ParametricLayer, Loss
+from tensorslow.layers import Layer, ParametricLayer, Loss
 from tensorslow.optimizers import Optimizer
 import tensorslow.metrics as tensorslow_metrics
 
@@ -242,25 +245,22 @@ class Model:
 
     def add_layer(self, layer):
         """ method to add a layer to the model - mimics keras model.add()"""
-        # TODO add more checking on the layer input and output shape
 
-        existing_parametric_layers = [layer for layer in self.layers if isinstance(layer, ParametricLayer)]
+        if not isinstance(layer, Layer):
+            raise ValueError('The layer parameter must be an instance of a sub-class of Layer')
 
-        if isinstance(layer, ParametricLayer):
-            # If input_dim of a parametric layer is unspecified infer it from the output of the previous layer
-            if layer.input_dim is None:
-                if not existing_parametric_layers:
-                    raise ValueError('You must specify the input_dim for the first parametric layer in a model')
-                else:
-                    layer.input_dim = existing_parametric_layers[-1].neurons
-            elif existing_parametric_layers:
-                # If input_dim is specified then check that it matches the output shape of the previous layer
-                if layer.input_dim != existing_parametric_layers[-1].neurons:
-                    raise ValueError('input_dim: {} does not match the output shape of the previous parametric layer: {}'
-                                     .format(layer.input_dim, existing_parametric_layers[-1].neurons))
-                # TODO Warning! This will probably need to change to checking the output shape of the previous layer -
-                # TODO  regardless of whether it was parametric as some nonparametric layers i.e. maxpooling will change
-                # TODO   the shape
+        # Checks on input_dim
+        if layer.input_dim is None:
+            if not self.layers:
+                raise ValueError('You must specify the input_dim for the first layer in a model')
+            else:
+                layer.input_dim = self.layers[-1].neurons  # note for non-parametric layers this should also set neurons
+        else:
+            # If input_dim is specified then check that it matches the output shape of the previous layer
+            if self.layers and layer.input_dim != self.layers[-1].neurons:
+                raise ValueError('input_dim: {} does not match the output shape of the previous parametric layer: {}'
+                                 .format(layer.input_dim, self.layers[-1].neurons))
+            # TODO Warning! input_dim and neurons will need to change to more generic input output shapes
 
         self.layers.append(layer)
         if isinstance(layer, ParametricLayer):
@@ -328,3 +328,23 @@ class Model:
 
             if weight_idx != len(self.weights):
                 raise ValueError('Unexpectd error setting weights')
+
+    def summary(self):
+        """ Prints a tabular summary of the model architecture """
+
+        summary_df = pd.DataFrame(columns=['Layer Type', 'Input Shape', 'Output Shape', '# Parameters'])
+        for layer in self.layers:
+
+            if isinstance(layer, ParametricLayer):
+                output_shape = (None, layer.neurons)
+                parameters = layer.weights.size + layer.bias.size
+            else:
+                output_shape = (None, layer.input_dim)
+                parameters = 0
+
+            summary_df = summary_df.append({'Layer Type': layer.__class__.__name__,
+                                            'Input Shape': (None, layer.input_dim),
+                                            'Output Shape': output_shape,
+                                            '# Parameters': parameters}, ignore_index=True)
+
+        print(tabulate(summary_df, headers='keys', tablefmt='psql', showindex=False))

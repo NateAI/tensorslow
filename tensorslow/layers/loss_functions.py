@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Loss:
-    """ Base class for all loss functions"""
+    """ Base class for all loss functions - probably this should also inherit from Layer in the future"""
 
     def __init__(self):
 

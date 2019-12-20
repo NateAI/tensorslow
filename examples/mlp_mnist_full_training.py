@@ -55,6 +55,9 @@ tensorslow_model.add_layer(layer=Softmax())
 sgd = SGD(lr=lr)
 tensorslow_model.compile(loss=CategoricalCrossentropy(), optimizer=sgd, metrics=['accuracy'])
 
+tensorslow_model.summary()
+time.sleep(5)  # give chance to inspect summary
+
 #######################################################################################################################
 #                                 STEP 2 - Implement Equivilent MLP in Keras
 #######################################################################################################################

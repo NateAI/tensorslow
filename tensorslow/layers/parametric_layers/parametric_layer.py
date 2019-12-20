@@ -65,9 +65,12 @@ class ParametricLayer(Layer):
     @input_dim.setter
     def input_dim(self, value):
         if self._input_dim is None:
-            self._input_dim = value
-            self._set_initializer()  # must be set before weights can be initialized
-            self._initialise_weights_and_bias()
+            if isinstance(value, int):
+                self._input_dim = value
+                self._set_initializer()  # must be set before weights can be initialized
+                self._initialise_weights_and_bias()
+            else:
+                raise value('input_dim must be of type int - you passed a value of type {}'.format(type(value)))
         else:
             raise Warning('Cannot change input_dim of layer after it has been set')
 

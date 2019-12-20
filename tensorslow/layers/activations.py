@@ -4,11 +4,45 @@ import numpy as np
 from tensorslow.layers.layer import Layer
 
 
-class Sigmoid(Layer):
+class Activation(Layer):
 
-    def __init__(self):
+    """Base class for all activations"""
 
-        super(Sigmoid, self).__init__()
+    def __init__(self, input_dim=None):
+
+        self._input_dim = input_dim
+        self._neurons = input_dim  # input and output shape are equal for all activations
+
+    # TODO there is some duplication here with code in paramteric_layer
+    @property
+    def neurons(self):
+        return self._neurons
+
+    @neurons.setter
+    def neurons(self, value):
+        raise Warning('Cannot change number of neurons in layer after instantiation')
+
+    @property
+    def input_dim (self):
+        return self._input_dim
+
+    @input_dim.setter
+    def input_dim(self, value):
+        if self._input_dim is None:
+            if isinstance(value, int):
+                self._input_dim = value
+                self._neurons = value
+            else:
+                raise value('input_dim must be of type int - you passed a value of type {}'.format(type(value)))
+        else:
+            raise Warning('Cannot change input_dim of layer after it has been set')
+
+
+class Sigmoid(Activation):
+
+    def __init__(self, input_dim=None):
+
+        super(Sigmoid, self).__init__(input_dim=input_dim)
 
         self.prev_layer_output = None
         self.activations = None
@@ -55,11 +89,11 @@ class Sigmoid(Layer):
         return self.activations * (1 - self.activations)
 
 
-class Softmax(Layer):
+class Softmax(Activation):
 
-    def __init__(self):
+    def __init__(self, input_dim=None):
 
-        super(Softmax, self).__init__()
+        super(Softmax, self).__init__(input_dim)
 
         self.prev_layer_output = None
         self.activations = None
@@ -127,11 +161,11 @@ class Softmax(Layer):
         return jacobian
 
 
-class Relu(Layer):
+class Relu(Activation):
 
-    def __init__(self):
+    def __init__(self, input_dim=None):
 
-        super(Relu, self).__init__()
+        super(Relu, self).__init__(input_dim)
 
         self.prev_layer_output = None
         self.activations = None
@@ -177,11 +211,11 @@ class Relu(Layer):
         return jacobian
 
 
-class Tanh(Layer):
+class Tanh(Activation):
 
-    def __init__(self):
+    def __init__(self, input_dim=None):
 
-        super(Tanh, self).__init__()
+        super(Tanh, self).__init__(input_dim)
 
         self.prev_layer_output = None
         self.activations = None

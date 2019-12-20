@@ -17,7 +17,7 @@ class TestModelCreation(unittest.TestCase):
     def setUp(self) -> None:
         self.model = Model()
 
-    def test_add_first_layer_correcly(self):
+    def test_add_first_layer_correctly(self):
 
         self.setUp()
         self.model.add_layer(FullyConnected(neurons=10, input_dim=20))
